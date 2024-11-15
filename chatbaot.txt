@@ -1,0 +1,65 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const nodemailer = require('nodemailer');
+const twilio = require('twilio');
+
+const app = express();
+app.use(bodyParser.json());
+
+// Twilio configuration
+const twilioAccountSid = 'your_twilio_account_sid';
+const twilioAuthToken = 'your_twilio_auth_token';
+const twilioClient = new twilio(twilioAccountSid, twilioAuthToken);
+
+// Nodemailer configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'ummadivikram@gmail.com', // Replace with your email
+    pass: 'Vikram@37',  // Replace with your email password or app password
+  },
+});
+
+// Webhook endpoint
+app.post('/webhook', (req, res) => {
+  const { customer_name, customer_email, customer_phone } = req.body;
+
+  if (!customer_name || !customer_email || !customer_phone) {
+    return res.status(400).send('Missing required fields');
+  }
+
+  // Send email notification
+  const mailOptions = {
+    from: 'your_email@gmail.com',
+    to: 'ummadivikram@gmail.com', // Replace with your email
+    subject: 'New Customer Details',
+    text: `Name: ${customer_name}\nEmail: ${customer_email}\nPhone: ${customer_phone}`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error('Error sending email:', error);
+    } else {
+      console.log('Email sent:', info.response);
+    }
+  });
+
+  // Send SMS notification
+  twilioClient.messages
+    .create({
+      body: `Hi ${customer_name}, we've received your request!`,
+      from: '+916281377625', // Replace with your Twilio number
+      to: customer_phone,
+    })
+    .then((message) => console.log('SMS sent:', message.sid))
+    .catch((error) => console.error('Error sending SMS:', error));
+
+  // Send response back to Watson
+  res.status(200).send({ message: 'Data processed successfully' });
+});
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
